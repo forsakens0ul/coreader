@@ -1,0 +1,233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    
+    /* Reading themes */
+    --reading-bg: 0 0% 100%;
+    --reading-text: 0 0% 3.9%;
+    --reading-accent: 45 100% 96%;
+    --reading-selection: 45 100% 85%;
+  }
+  
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    
+    /* Dark reading themes */
+    --reading-bg: 0 0% 7%;
+    --reading-text: 0 0% 90%;
+    --reading-accent: 0 0% 14.9%;
+    --reading-selection: 0 0% 20%;
+  }
+  
+  /* Additional reading themes */
+  .theme-sepia {
+    --reading-bg: 45 30% 94%;
+    --reading-text: 25 20% 15%;
+    --reading-accent: 45 25% 88%;
+    --reading-selection: 45 40% 80%;
+  }
+  
+  .theme-paper {
+    --reading-bg: 35 15% 96%;
+    --reading-text: 20 15% 10%;
+    --reading-accent: 35 10% 90%;
+    --reading-selection: 35 25% 85%;
+  }
+  
+  .theme-green {
+    --reading-bg: 120 30% 8%;
+    --reading-text: 120 15% 85%;
+    --reading-accent: 120 20% 15%;
+    --reading-selection: 120 30% 25%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .reading-container {
+    background-color: hsl(var(--reading-bg));
+    color: hsl(var(--reading-text));
+  }
+  
+  .reading-selection {
+    background-color: hsl(var(--reading-selection));
+  }
+  
+  .highlight-yellow {
+    background-color: rgba(255, 235, 59, 0.3);
+    border-bottom: 2px solid rgba(255, 235, 59, 0.8);
+  }
+  
+  .highlight-blue {
+    background-color: rgba(33, 150, 243, 0.3);
+    border-bottom: 2px solid rgba(33, 150, 243, 0.8);
+  }
+  
+  .highlight-green {
+    background-color: rgba(76, 175, 80, 0.3);
+    border-bottom: 2px solid rgba(76, 175, 80, 0.8);
+  }
+  
+  .highlight-red {
+    background-color: rgba(244, 67, 54, 0.3);
+    border-bottom: 2px solid rgba(244, 67, 54, 0.8);
+  }
+  
+  .underline-wave {
+    text-decoration: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: currentColor;
+    text-underline-offset: 4px;
+  }
+  
+  .font-reading {
+    font-family: var(--font-crimson), serif;
+    line-height: 1.7;
+    letter-spacing: 0.02em;
+  }
+  
+  .font-reading-serif {
+    font-family: var(--font-source-serif), serif;
+    line-height: 1.6;
+  }
+  
+  .font-reading-sans {
+    font-family: var(--font-inter), sans-serif;
+    line-height: 1.6;
+  }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Selection styles */
+::selection {
+  background: hsl(var(--reading-selection));
+  color: inherit;
+}
+
+/* Animation utilities */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Print styles for reading */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .reading-container {
+    background: white !important;
+    color: black !important;
+  }
+}
