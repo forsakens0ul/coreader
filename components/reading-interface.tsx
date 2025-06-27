@@ -89,38 +89,90 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
   // Initialize page info
   useEffect(() => {
     let mounted = true
+    const bookTitle = book.title // 在函数内部保存引用，避免依赖项变化
+    const bookContent = book.content // 在函数内部保存引用，避免依赖项变化
     
     try {
       // 确保阅读引擎已初始化
+      console.log('初始化阅读界面，书籍：', bookTitle);
+      console.log('内容长度：', bookContent?.length || 0);
+      console.log('章节数：', book.chapters?.length || 0);
+      
+      // 内容检查
+      if (!bookContent || bookContent.trim() === '' || bookContent === 'No content available') {
+        console.error('书籍内容为空或无效');
+        
+        // 尝试从章节内容合并构建全文内容
+        if (book.chapters && book.chapters.length > 0) {
+          let mergedContent = '';
+          for (const chapter of book.chapters) {
+            if (chapter.content && chapter.content.trim() !== '') {
+              mergedContent += chapter.content + '\n\n';
+            }
+          }
+          
+          if (mergedContent.trim() !== '') {
+            console.log('从章节内容构建了全文内容，长度:', mergedContent.length);
+            // 更新阅读引擎中的内容
+            readingEngine.updateContent(mergedContent);
+          } else {
+            throw new Error(`无法读取"${bookTitle}"的内容，请尝试重新导入。`);
+          }
+        } else {
+          throw new Error(`无法读取"${bookTitle}"的内容，请尝试重新导入。`);
+        }
+      }
+      
       const totalPages = readingEngine.getTotalPages()
+      console.log('总页数：', totalPages);
+      
       if (totalPages === 0) {
-        console.error('No pages found in reading engine')
-        return
+        console.error('阅读引擎中未找到页面');
+        throw new Error('未找到可阅读的页面，请尝试重新导入书籍');
       }
       
       // 确保当前页面索引有效
       const validPage = Math.max(0, Math.min(currentPage, totalPages - 1))
       
       const info = readingEngine.getPageInfo(validPage)
+      console.log('页面信息：', info);
+      
       if (info && mounted) {
+        if (info.content === 'No content available') {
+          console.error('页面内容为"No content available"');
+          throw new Error(`无法读取"${bookTitle}"的内容，请尝试重新导入。`);
+        }
+        
         setPageInfo(info)
         if (validPage !== currentPage) {
           setCurrentPage(validPage)
         }
+      } else {
+        console.error('无法获取页面信息');
+        throw new Error('无法获取页面信息，请尝试重新导入');
       }
     } catch (error) {
-      console.error('Error getting page info:', error)
+      console.error('获取页面信息时出错:', error)
       
       if (mounted) {
         // 创建一个默认的页面信息
+        const errorMessage = error instanceof Error ? 
+          error.message : 
+          `无法读取"${bookTitle}"的内容，请尝试重新导入。`;
+        
         setPageInfo({
-          content: book.content || `Welcome to ${book.title}!\n\nThis book appears to be empty or the content could not be loaded properly. Please try importing the book again.`,
+          content: errorMessage,
           chapterId: 'chapter-1',
-          chapterTitle: book.title || 'Full Text',
+          chapterTitle: bookTitle || 'Full Text',
           pageInChapter: 0,
           totalPagesInChapter: 1,
           globalPage: 0,
           totalPages: 1
+        })
+        
+        // 显示提示信息
+        toast.error(errorMessage, {
+          duration: 5000
         })
       }
     }
@@ -128,7 +180,7 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
     return () => {
       mounted = false
     }
-  }, [currentPage, readingEngine])
+  }, [book, currentPage, readingEngine, toast])
 
   // Update book progress
   useEffect(() => {
@@ -238,7 +290,6 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
         color,
         style,
         page: pageInfo.globalPage,
-        chapterId: pageInfo.chapterId,
         position: selectionRange
       })
       setShowHighlightMenu(false)

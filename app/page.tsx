@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { BookOpen, Upload, BarChart3, Settings, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Bookshelf } from '@/components/bookshelf'
-import { BookImport } from '@/components/book-import'
+import BookImport from '@/components/book-import'
 import { ReadingInterface } from '@/components/reading-interface'
 import { useBookStore } from '@/lib/store'
 
@@ -161,7 +161,7 @@ export default function Home() {
                   <CardHeader>
                     <CardTitle>Recent Books</CardTitle>
                     <CardDescription>
-                      Books you've read recently
+                      Books you&apos;ve read recently
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -242,14 +242,20 @@ export default function Home() {
       </main>
 
       {/* Import Dialog */}
-      <AnimatePresence>
-        {showImport && (
-          <BookImport
-            onClose={() => setShowImport(false)}
-            onComplete={handleImportComplete}
-          />
-        )}
-      </AnimatePresence>
+      {showImport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+          >
+            <BookImport
+              onClose={() => setShowImport(false)}
+              onComplete={handleImportComplete}
+            />
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

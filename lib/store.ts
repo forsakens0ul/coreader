@@ -176,12 +176,91 @@ export const useBookStore = create<BookStore>()(
       currentBook: null,
       
       addBook: (bookData) => {
-        const book: Book = {
-          ...bookData,
-          id: `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          addedAt: new Date(),
+        console.log('添加书籍到存储:', bookData.title);
+        
+        try {
+          // 内容检查
+          if (!bookData.content || bookData.content.trim() === '' || bookData.content === 'No content available') {
+            console.warn('书籍内容无效或为空，使用默认内容');
+            bookData.content = `无法读取"${bookData.title}"的内容，请尝试重新导入。`;
+          } else {
+            console.log(`书籍"${bookData.title}"内容长度: ${bookData.content.length}`);
+            
+            // 如果内容过大，可能会导致性能问题，截断过长内容
+            const maxContentLength = 1000000; // 约1MB文本
+            if (bookData.content.length > maxContentLength) {
+              console.warn(`书籍内容过大(${bookData.content.length}字符)，截断到${maxContentLength}字符`);
+              bookData.content = bookData.content.substring(0, maxContentLength);
+            }
+          }
+          
+          // 章节检查和修复
+          if (!bookData.chapters || bookData.chapters.length === 0) {
+            console.warn('书籍章节为空，创建默认章节');
+            bookData.chapters = [{
+              id: 'chapter-1',
+              title: '全文',
+              content: bookData.content,
+              startPage: 1,
+              endPage: Math.max(1, Math.ceil(bookData.wordCount / 300))
+            }];
+          } else {
+            // 章节内容也可能过大，逐个检查和截断
+            const maxChapterLength = 500000; // 约500KB文本
+            let validChapters = false;
+            
+            for (let i = 0; i < bookData.chapters.length; i++) {
+              const chapter = bookData.chapters[i];
+              
+              if (chapter.content && chapter.content.trim() !== '') {
+                validChapters = true;
+                
+                // 截断过长章节
+                if (chapter.content.length > maxChapterLength) {
+                  console.warn(`章节 "${chapter.title}" 内容过大(${chapter.content.length}字符)，截断到${maxChapterLength}字符`);
+                  bookData.chapters[i].content = chapter.content.substring(0, maxChapterLength);
+                }
+              }
+            }
+            
+            if (!validChapters) {
+              console.warn('所有章节内容均为空，重置章节');
+              bookData.chapters = [{
+                id: 'chapter-1',
+                title: '全文',
+                content: bookData.content.substring(0, maxChapterLength),
+                startPage: 1,
+                endPage: Math.max(1, Math.ceil(bookData.wordCount / 300))
+              }];
+            }
+          }
+          
+          // 确保必要字段存在
+          const book: Book = {
+            ...bookData,
+            id: `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            addedAt: new Date(),
+            progress: bookData.progress || 0,
+            currentPage: bookData.currentPage || 0,
+            lastReadAt: bookData.lastReadAt || new Date(),
+            isFinished: bookData.isFinished || false,
+            tags: bookData.tags || [],
+            fileSize: bookData.fileSize || 0,
+            readingTime: bookData.readingTime || 0
+          }
+          
+          // 添加前再次确认书籍内容有效
+          if (!book.content || book.content.trim() === '') {
+            console.error('最终添加的书籍内容仍然为空，这将导致阅读问题');
+          }
+          
+          console.log('开始更新状态...');
+          set((state) => ({ books: [...state.books, book] }));
+          console.log('状态更新完成');
+        } catch (error) {
+          console.error('添加书籍到存储时出错:', error);
+          throw new Error(`添加书籍失败: ${error instanceof Error ? error.message : '未知错误'}`);
         }
-        set((state) => ({ books: [...state.books, book] }))
       },
       
       removeBook: (bookId) => {

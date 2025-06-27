@@ -1,9 +1,6 @@
-export interface ReadingPosition {
-  chapterId: string
-  pageInChapter: number
-  globalPage: number
-  progress: number
-}
+import { create } from 'zustand'
+import { ParsedBook } from './book-parser'
+import { Chapter } from './store'
 
 export interface PageInfo {
   content: string
@@ -15,393 +12,699 @@ export interface PageInfo {
   totalPages: number
 }
 
+// 阅读引擎类
 export class ReadingEngine {
-  private book: any
+  private book: ParsedBook
   private pages: string[] = []
-  private chapterPages: Map<string, string[]> = new Map()
-  private pageToChapter: Map<number, string> = new Map()
-  
-  constructor(book: any) {
-    this.book = book
-    this.initializePages()
+  private currentPage = 0
+  private currentChapter = 0
+  private fontSize = 18
+  private fontFamily = 'Georgia, serif'
+  private lineHeight = 1.5
+
+  constructor(book: ParsedBook) {
+    this.book = book;
+    this.pages = this.splitIntoPages(book.content);
   }
-  
-  private initializePages() {
-    let globalPageIndex = 0
-    
-    // 确保有内容可以显示
-    let chapters = this.book.chapters || []
-    
-    // 如果没有章节或章节为空，从主内容创建章节
-    if (chapters.length === 0 || chapters.every((c: any) => !c.content || !c.content.trim())) {
-      const content = this.book.content || 'No content available'
-      chapters = [{
-        id: 'chapter-1',
-        title: this.book.title || 'Full Text',
-        content: content,
-        startPage: 0,
-        endPage: 0
-      }]
-      this.book.chapters = chapters
-    }
-    
-    for (const chapter of chapters) {
-      let chapterContent = chapter.content || ''
-      
-      // 如果章节内容为空，使用书籍主内容
-      if (!chapterContent.trim()) {
-        chapterContent = this.book.content || `Chapter content for ${chapter.title}`
-      }
-      
-      // 确保内容不为空
-      if (!chapterContent.trim()) {
-        chapterContent = `Content for ${chapter.title || 'Chapter'}`
-      }
-      
-      const wordCount = this.countWords(chapterContent)
-      const chapterPageCount = Math.max(1, Math.ceil(wordCount / 300))
-      const chapterPages: string[] = []
-      
-      // Split chapter content into pages
-      const words = chapterContent.split(' ')
-      const wordsPerPage = Math.max(50, Math.ceil(words.length / chapterPageCount))
-      
-      for (let i = 0; i < words.length; i += wordsPerPage) {
-        const pageContent = words.slice(i, i + wordsPerPage).join(' ')
-        if (pageContent.trim()) {
-          chapterPages.push(pageContent)
-          this.pages.push(pageContent)
-          this.pageToChapter.set(globalPageIndex, chapter.id)
-          globalPageIndex++
-        }
-      }
-      
-      // 确保每个章节至少有一页
-      if (chapterPages.length === 0) {
-        const fallbackContent = chapterContent || `Content for ${chapter.title}`
-        chapterPages.push(fallbackContent)
-        this.pages.push(fallbackContent)
-        this.pageToChapter.set(globalPageIndex, chapter.id)
-        globalPageIndex++
-      }
-      
-      this.chapterPages.set(chapter.id, chapterPages)
-    }
-    
-    // 确保至少有一页内容
-    if (this.pages.length === 0) {
-      const fallbackContent = this.book.content || `Welcome to ${this.book.title || 'this book'}!\n\nThis appears to be an empty book or the content could not be loaded properly. Please try importing the book again.`
-      this.pages.push(fallbackContent)
-      this.pageToChapter.set(0, 'chapter-1')
-      this.chapterPages.set('chapter-1', [fallbackContent])
-      
-      // 确保有章节信息
-      if (!this.book.chapters || this.book.chapters.length === 0) {
-        this.book.chapters = [{
-          id: 'chapter-1',
-          title: this.book.title || 'Full Text',
-          content: fallbackContent,
-          startPage: 0,
-          endPage: 0
-        }]
-      }
-    }
+
+  // 获取总页数
+  getTotalPages(): number {
+    return this.pages.length;
   }
-  
-  getPageInfo(globalPage: number): PageInfo | null {
-    // 确保页面索引有效
-    if (globalPage < 0 || globalPage >= this.pages.length) {
-      // 如果页面索引无效，返回第一页或最后一页
-      if (this.pages.length > 0) {
-        const validPage = Math.max(0, Math.min(globalPage, this.pages.length - 1))
-        return this.getPageInfo(validPage)
-      }
-      return null
+
+  // 获取页面信息
+  getPageInfo(pageIndex: number): PageInfo {
+    if (pageIndex < 0 || pageIndex >= this.pages.length) {
+      return {
+        content: 'No content available',
+        chapterId: 'unknown',
+        chapterTitle: 'Unknown',
+        pageInChapter: 0,
+        totalPagesInChapter: 0,
+        globalPage: pageIndex,
+        totalPages: this.pages.length
+      };
     }
-    
-    const chapterId = this.pageToChapter.get(globalPage)
-    if (!chapterId) return null
-    
-    const chapter = this.book.chapters.find((c: any) => c.id === chapterId)
+
+    // 查找当前页面所在的章节
+    const chapter = this.book.chapters.find(ch => 
+      pageIndex >= ch.startPage - 1 && pageIndex < ch.endPage
+    );
+
     if (!chapter) {
-      // 如果找不到章节，使用第一个章节
-      const firstChapter = this.book.chapters[0]
-      if (firstChapter) {
-        return {
-          content: this.pages[globalPage] || 'No content',
-          chapterId: firstChapter.id,
-          chapterTitle: firstChapter.title,
-          pageInChapter: 0,
-          totalPagesInChapter: 1,
-          globalPage,
-          totalPages: this.pages.length
-        }
-      }
-      return null
+      return {
+        content: this.pages[pageIndex],
+        chapterId: 'unknown',
+        chapterTitle: 'Unknown',
+        pageInChapter: 0,
+        totalPagesInChapter: 0,
+        globalPage: pageIndex,
+        totalPages: this.pages.length
+      };
     }
-    
-    const chapterPages = this.chapterPages.get(chapterId) || []
-    const pageInChapter = this.getPageInChapter(globalPage, chapterId)
-    
+
     return {
-      content: this.pages[globalPage] || 'No content available',
-      chapterId,
+      content: this.pages[pageIndex],
+      chapterId: chapter.id,
       chapterTitle: chapter.title,
-      pageInChapter,
-      totalPagesInChapter: Math.max(1, chapterPages.length),
-      globalPage,
-      totalPages: Math.max(1, this.pages.length)
+      pageInChapter: pageIndex - (chapter.startPage - 1),
+      totalPagesInChapter: chapter.endPage - chapter.startPage + 1,
+      globalPage: pageIndex,
+      totalPages: this.pages.length
+    };
+  }
+
+  // 重新分页
+  repaginate(options: any): void {
+    this.fontSize = options.fontSize || this.fontSize;
+    this.fontFamily = options.fontFamily || this.fontFamily;
+    this.lineHeight = options.lineHeight || this.lineHeight;
+    
+    this.pages = this.splitIntoPages(this.book.content, options);
+  }
+
+  // 更新内容
+  updateContent(content: string): void {
+    if (content && content.trim() !== '') {
+      this.book.content = content;
+      // 重新分页
+      this.pages = this.splitIntoPages(content);
+      console.log(`内容已更新，新页数: ${this.pages.length}`);
+    } else {
+      console.error('尝试更新内容为空，操作被取消');
     }
   }
-  
-  private getPageInChapter(globalPage: number, chapterId: string): number {
-    let pageCount = 0
-    for (let i = 0; i <= globalPage; i++) {
-      if (this.pageToChapter.get(i) === chapterId) {
-        if (i === globalPage) return pageCount
-        pageCount++
-      } else if (this.pageToChapter.get(i) !== chapterId && pageCount > 0) {
-        pageCount = 0
-      }
-    }
-    return pageCount
+
+  // 获取章节
+  getChapters(): Chapter[] {
+    return this.book.chapters || [];
   }
-  
+
+  // 获取章节第一页
   getChapterFirstPage(chapterId: string): number {
+    const chapter = this.book.chapters.find(ch => ch.id === chapterId);
+    if (chapter) {
+      return Math.max(0, chapter.startPage - 1);
+    }
+    return 0;
+  }
+
+  // 搜索文本
+  searchText(query: string): Array<{text: string, page: number}> {
+    if (!query || !this.book.content) return [];
+    
+    const results: Array<{text: string, page: number}> = [];
+    const queryLower = query.toLowerCase();
+    
+    // 在每一页中搜索
     for (let i = 0; i < this.pages.length; i++) {
-      if (this.pageToChapter.get(i) === chapterId) {
-        return i
-      }
-    }
-    return 0
-  }
-  
-  getPosition(globalPage: number): ReadingPosition {
-    const chapterId = this.pageToChapter.get(globalPage) || this.book.chapters[0]?.id
-    const pageInChapter = this.getPageInChapter(globalPage, chapterId)
-    const progress = Math.round((globalPage / this.pages.length) * 100)
-    
-    return {
-      chapterId,
-      pageInChapter,
-      globalPage,
-      progress
-    }
-  }
-  
-  searchText(query: string): Array<{
-    chapterId: string
-    chapterTitle: string
-    pageInChapter: number
-    globalPage: number
-    context: string
-    matchIndex: number
-  }> {
-    const results: Array<{
-      chapterId: string
-      chapterTitle: string
-      pageInChapter: number
-      globalPage: number
-      context: string
-      matchIndex: number
-    }> = []
-    
-    const searchTerm = query.toLowerCase()
-    
-    for (let globalPage = 0; globalPage < this.pages.length; globalPage++) {
-      const pageContent = this.pages[globalPage].toLowerCase()
-      const chapterId = this.pageToChapter.get(globalPage)
-      
-      if (!chapterId) continue
-      
-      const chapter = this.book.chapters.find((c: any) => c.id === chapterId)
-      if (!chapter) continue
-      
-      let searchIndex = 0
-      while ((searchIndex = pageContent.indexOf(searchTerm, searchIndex)) !== -1) {
-        const contextStart = Math.max(0, searchIndex - 50)
-        const contextEnd = Math.min(pageContent.length, searchIndex + searchTerm.length + 50)
-        const context = this.pages[globalPage].substring(contextStart, contextEnd)
+      const pageContent = this.pages[i];
+      if (pageContent.toLowerCase().includes(queryLower)) {
+        // 提取匹配上下文
+        const index = pageContent.toLowerCase().indexOf(queryLower);
+        const start = Math.max(0, index - 20);
+        const end = Math.min(pageContent.length, index + query.length + 20);
+        const contextText = pageContent.substring(start, end);
         
         results.push({
-          chapterId,
-          chapterTitle: chapter.title,
-          pageInChapter: this.getPageInChapter(globalPage, chapterId),
-          globalPage,
-          context,
-          matchIndex: searchIndex
-        })
-        
-        searchIndex += searchTerm.length
+          text: `...${contextText}...`,
+          page: i
+        });
       }
     }
     
-    return results
+    return results;
   }
-  
-  getTotalPages(): number {
-    return this.pages.length
+
+  // 分页算法
+  private splitIntoPages(content: string, options: any = {}): string[] {
+    const finalOptions = {
+      fontSize: this.fontSize,
+      fontFamily: this.fontFamily,
+      lineHeight: this.lineHeight,
+      pageWidth: 800,
+      pageHeight: 600,
+      padding: 40,
+      ...options
+    };
+
+    // 如果不在浏览器环境，使用简单分页
+    if (typeof window === 'undefined') {
+      return simpleSplitIntoPages(content, finalOptions);
+    }
+
+    try {
+      // 使用Canvas测量文本进行精确分页
+      return canvasSplitIntoPages(content, finalOptions);
+    } catch (error) {
+      console.error('使用Canvas分页失败，回退到简单分页:', error);
+      return simpleSplitIntoPages(content, finalOptions);
+    }
   }
+}
+
+interface ReadingEngineState {
+  currentBook: ParsedBook | null
+  currentPage: number
+  currentChapter: number
+  pages: string[]
   
-  getChapters(): Array<{
-    id: string
-    title: string
-    startPage: number
-    endPage: number
-    pageCount: number
-  }> {
-    return this.book.chapters.map((chapter: any) => ({
-      id: chapter.id,
-      title: chapter.title,
-      startPage: this.getChapterFirstPage(chapter.id),
-      endPage: this.getChapterFirstPage(chapter.id) + (this.chapterPages.get(chapter.id)?.length || 1) - 1,
-      pageCount: this.chapterPages.get(chapter.id)?.length || 1
-    }))
-  }
+  // 阅读设置
+  fontSize: number
+  fontFamily: string
+  lineHeight: number
+  theme: 'light' | 'dark' | 'sepia'
   
-  private countWords(text: string): number {
-    const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
-    const englishWords = (text.match(/[a-zA-Z]+/g) || []).length
-    return chineseChars + englishWords
-  }
+  // 阅读统计
+  timeSpent: number
+  lastReadTimestamp: number
   
-  // Advanced pagination with canvas measurement
-  repaginate(options: {
+  // 操作方法
+  setBook: (book: ParsedBook) => void
+  setPage: (page: number) => void
+  setChapter: (chapter: number) => void
+  nextPage: () => void
+  prevPage: () => void
+  updateReadingPreference: (prefs: Partial<{
+    fontSize: number
+    fontFamily: string
+    lineHeight: number
+    theme: 'light' | 'dark' | 'sepia'
+  }>) => void
+  getPageContent: () => string
+  splitIntoPages: (content: string, options?: Partial<{
     fontSize: number
     fontFamily: string
     lineHeight: number
     pageWidth: number
     pageHeight: number
     padding: number
-  }) {
-    this.pages = []
-    this.chapterPages.clear()
-    this.pageToChapter.clear()
-    
-    let globalPageIndex = 0
-    
-    for (const chapter of this.book.chapters) {
-      const { pages } = this.measureTextPages(chapter.content, options)
-      
-      this.chapterPages.set(chapter.id, pages)
-      
-      for (const page of pages) {
-        this.pages.push(page)
-        this.pageToChapter.set(globalPageIndex, chapter.id)
-        globalPageIndex++
-      }
-    }
-  }
+  }>) => string[]
+  trackReadingTime: () => void
+  resetEngine: () => void
+}
+
+const useReadingEngine = create<ReadingEngineState>((set, get) => ({
+  currentBook: null,
+  currentPage: 1,
+  currentChapter: 0,
+  pages: [],
   
-  private measureTextPages(
-    text: string,
-    options: {
-      fontSize: number
-      fontFamily: string
-      lineHeight: number
-      pageWidth: number
-      pageHeight: number
-      padding: number
+  // 默认阅读设置
+  fontSize: 18,
+  fontFamily: 'Georgia, serif',
+  lineHeight: 1.5,
+  theme: 'light',
+  
+  // 阅读统计
+  timeSpent: 0,
+  lastReadTimestamp: 0,
+  
+  setBook: (book: ParsedBook) => {
+    if (!book || !book.content) {
+      console.error('无效的书籍内容');
+      return;
     }
-  ): { pages: string[] } {
-    if (typeof window === 'undefined') {
-      // Fallback for server-side
-      const wordsPerPage = 300
-      const words = text.split(' ')
-      const pages: string[] = []
+    
+    const { fontSize, fontFamily, lineHeight } = get();
+    const options = { fontSize, fontFamily, lineHeight };
+    
+    // 先分割全部内容为页面
+    const pages = get().splitIntoPages(book.content, options);
+    
+    set({ 
+      currentBook: book, 
+      currentPage: 1, 
+      currentChapter: 0,
+      pages,
+      lastReadTimestamp: Date.now()
+    });
+    
+    console.log(`书籍已加载: ${book.title}, 总页数: ${pages.length}`);
+  },
+  
+  setPage: (page: number) => {
+    const { pages, currentPage } = get();
+    
+    if (page < 1 || page > pages.length) {
+      console.warn(`页码超出范围: ${page}, 有效范围: 1-${pages.length}`);
+      return;
+    }
+    
+    if (page !== currentPage) {
+      set({ currentPage: page });
+      get().trackReadingTime();
       
-      for (let i = 0; i < words.length; i += wordsPerPage) {
-        pages.push(words.slice(i, i + wordsPerPage).join(' '))
+      // 更新当前章节
+      const { currentBook } = get();
+      if (currentBook) {
+        const newChapter = currentBook.chapters.findIndex(chapter => 
+          page >= chapter.startPage && page <= chapter.endPage
+        );
+        
+        if (newChapter !== -1 && newChapter !== get().currentChapter) {
+          set({ currentChapter: newChapter });
+        }
       }
-      
-      return { pages }
+    }
+  },
+  
+  setChapter: (chapter: number) => {
+    const { currentBook } = get();
+    
+    if (!currentBook || chapter < 0 || chapter >= currentBook.chapters.length) {
+      console.warn('无效的章节索引');
+      return;
     }
     
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')!
+    const startPage = currentBook.chapters[chapter].startPage;
+    set({ currentChapter: chapter });
+    get().setPage(startPage);
+  },
+  
+  nextPage: () => {
+    const { currentPage, pages } = get();
     
-    ctx.font = `${options.fontSize}px ${options.fontFamily}`
+    if (currentPage < pages.length) {
+      get().setPage(currentPage + 1);
+    }
+  },
+  
+  prevPage: () => {
+    const { currentPage } = get();
     
-    const maxWidth = options.pageWidth - (options.padding * 2)
-    const maxHeight = options.pageHeight - (options.padding * 2)
-    const lineHeight = options.fontSize * options.lineHeight
-    const maxLines = Math.floor(maxHeight / lineHeight)
+    if (currentPage > 1) {
+      get().setPage(currentPage - 1);
+    }
+  },
+  
+  updateReadingPreference: (prefs) => {
+    const currentPrefs = {
+      fontSize: get().fontSize,
+      fontFamily: get().fontFamily,
+      lineHeight: get().lineHeight,
+      theme: get().theme
+    };
     
-    const paragraphs = text.split('\n\n')
-    const pages: string[] = []
-    let currentPage: string[] = []
-    let currentLineCount = 0
+    const newPrefs = { ...currentPrefs, ...prefs };
+    set(newPrefs);
+    
+    // 如果文本排版相关设置有变化，需要重新分页
+    if (
+      prefs.fontSize !== undefined || 
+      prefs.fontFamily !== undefined || 
+      prefs.lineHeight !== undefined
+    ) {
+      const { currentBook } = get();
+      if (currentBook) {
+        const currentPageProgress = get().currentPage / get().pages.length;
+        const pages = get().splitIntoPages(currentBook.content, newPrefs);
+        const newPage = Math.max(1, Math.min(
+          Math.round(currentPageProgress * pages.length),
+          pages.length
+        ));
+        
+        set({ pages, currentPage: newPage });
+      }
+    }
+  },
+  
+  getPageContent: () => {
+    const { pages, currentPage } = get();
+    
+    if (currentPage < 1 || currentPage > pages.length) {
+      return '无内容';
+    }
+    
+    return pages[currentPage - 1];
+  },
+  
+  splitIntoPages: (content: string, options = {}) => {
+    // 获取当前设置并合并新的选项
+    const defaultOptions = {
+      fontSize: get().fontSize,
+      fontFamily: get().fontFamily,
+      lineHeight: get().lineHeight,
+      pageWidth: 800,     // 默认页面宽度
+      pageHeight: 600,    // 默认页面高度
+      padding: 40         // 内边距
+    };
+    
+    const finalOptions = { ...defaultOptions, ...options };
+    
+    // 如果不在浏览器环境，使用简单分页
+    if (typeof window === 'undefined') {
+      return simpleSplitIntoPages(content, finalOptions);
+    }
+    
+    try {
+      // 使用Canvas测量文本进行精确分页
+      return canvasSplitIntoPages(content, finalOptions);
+    } catch (error) {
+      console.error('使用Canvas分页失败，回退到简单分页:', error);
+      return simpleSplitIntoPages(content, finalOptions);
+    }
+  },
+  
+  trackReadingTime: () => {
+    const now = Date.now();
+    const { lastReadTimestamp, timeSpent } = get();
+    
+    if (lastReadTimestamp > 0) {
+      // 计算本次阅读时间（上限为30分钟，防止用户离开但未关闭页面）
+      const sessionTime = Math.min(now - lastReadTimestamp, 30 * 60 * 1000);
+      set({ 
+        timeSpent: timeSpent + sessionTime,
+        lastReadTimestamp: now
+      });
+    } else {
+      set({ lastReadTimestamp: now });
+    }
+  },
+  
+  resetEngine: () => {
+    set({
+      currentBook: null,
+      currentPage: 1,
+      currentChapter: 0,
+      pages: [],
+      lastReadTimestamp: 0
+    });
+  }
+}));
+
+// 简单分页算法
+function simpleSplitIntoPages(
+  content: string, 
+  options: {
+    fontSize: number,
+    lineHeight: number,
+    pageWidth: number,
+    pageHeight: number,
+    padding: number,
+    fontFamily: string
+  }
+): string[] {
+  // 估算每页字符数
+  const charsPerLine = Math.floor((options.pageWidth - 2 * options.padding) / (options.fontSize * 0.6));
+  const linesPerPage = Math.floor((options.pageHeight - 2 * options.padding) / (options.fontSize * options.lineHeight));
+  
+  // 考虑中文和英文混排的情况
+  const isMostlyChinese = (content.match(/[\u4e00-\u9fff]/g) || []).length > content.length * 0.5;
+  
+  let charsPerPage: number;
+  
+  if (isMostlyChinese) {
+    // 中文文本处理
+    // 中文字符宽度基本相同，每行可容纳字符数较稳定
+    charsPerPage = charsPerLine * linesPerPage;
+    
+    // 分割文本 - 确保在自然段落和句子边界处分页
+    const paragraphs = content.split(/\n+/);
+    const pages: string[] = [];
+    let currentPage = '';
+    let currentLength = 0;
     
     for (const paragraph of paragraphs) {
-      const lines = this.wrapText(ctx, paragraph, maxWidth)
-      
-      // Check if paragraph fits on current page
-      if (currentLineCount + lines.length > maxLines && currentPage.length > 0) {
-        // Start new page
-        pages.push(currentPage.join('\n'))
-        currentPage = []
-        currentLineCount = 0
-      }
-      
-      // Add paragraph to current page
-      if (lines.length <= maxLines - currentLineCount) {
-        currentPage.push(...lines)
-        currentLineCount += lines.length
+      // 如果段落本身就超长，需要分割
+      if (paragraph.length > charsPerPage * 1.5) {
+        // 尝试在句子边界分割
+        const sentences = paragraph.split(/(?<=[。！？.!?])/);
         
-        // Add spacing between paragraphs
-        if (currentLineCount < maxLines) {
-          currentPage.push('')
-          currentLineCount++
-        }
-      } else {
-        // Split paragraph across pages
-        let remainingLines = [...lines]
-        
-        while (remainingLines.length > 0) {
-          const availableLines = maxLines - currentLineCount
-          const linesToAdd = remainingLines.splice(0, availableLines)
-          
-          currentPage.push(...linesToAdd)
-          currentLineCount += linesToAdd.length
-          
-          if (remainingLines.length > 0) {
-            pages.push(currentPage.join('\n'))
-            currentPage = []
-            currentLineCount = 0
+        for (const sentence of sentences) {
+          if (currentLength + sentence.length > charsPerPage && currentLength > 0) {
+            pages.push(currentPage);
+            currentPage = sentence;
+            currentLength = sentence.length;
+          } else {
+            if (currentPage && !currentPage.endsWith('\n')) {
+              currentPage += '\n';
+            }
+            currentPage += sentence;
+            currentLength += sentence.length;
           }
         }
-      }
-    }
-    
-    // Add remaining content
-    if (currentPage.length > 0) {
-      pages.push(currentPage.join('\n'))
-    }
-    
-    return { pages }
-  }
-  
-  private wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-    const words = text.split(' ')
-    const lines: string[] = []
-    let currentLine = ''
-    
-    for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word
-      const metrics = ctx.measureText(testLine)
-      
-      if (metrics.width > maxWidth && currentLine) {
-        lines.push(currentLine)
-        currentLine = word
       } else {
-        currentLine = testLine
+        // 正常段落处理
+        if (currentLength + paragraph.length > charsPerPage && currentLength > 0) {
+          pages.push(currentPage);
+          currentPage = paragraph;
+          currentLength = paragraph.length;
+        } else {
+          if (currentPage) {
+            currentPage += '\n\n';
+            currentLength += 2;
+          }
+          currentPage += paragraph;
+          currentLength += paragraph.length;
+        }
       }
     }
     
-    if (currentLine) {
-      lines.push(currentLine)
+    // 添加最后一页
+    if (currentPage) {
+      pages.push(currentPage);
     }
     
-    return lines
+    return pages;
+  } else {
+    // 英文文本处理
+    // 英文单词长度不一，使用单词计数
+    const wordsPerPage = Math.floor(charsPerLine * linesPerPage / 5); // 假设平均单词长度为5
+    
+    // 分割文本，按单词计数并尊重段落
+    const paragraphs = content.split(/\n+/);
+    const pages: string[] = [];
+    let currentPage = '';
+    let wordCount = 0;
+    
+    for (const paragraph of paragraphs) {
+      const words = paragraph.split(/\s+/);
+      
+      if (wordCount + words.length > wordsPerPage && wordCount > 0) {
+        pages.push(currentPage);
+        currentPage = paragraph;
+        wordCount = words.length;
+      } else {
+        if (currentPage) {
+          currentPage += '\n\n';
+        }
+        currentPage += paragraph;
+        wordCount += words.length;
+      }
+    }
+    
+    // 添加最后一页
+    if (currentPage) {
+      pages.push(currentPage);
+    }
+    
+    return pages;
   }
 }
+
+// 使用Canvas进行更精确的文本测量和分页
+function canvasSplitIntoPages(
+  content: string, 
+  options: {
+    fontSize: number,
+    fontFamily: string,
+    lineHeight: number,
+    pageWidth: number,
+    pageHeight: number,
+    padding: number
+  }
+): string[] {
+  // 创建Canvas上下文进行文本测量
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) {
+    console.error('无法创建Canvas上下文，回退到简单分页');
+    return simpleSplitIntoPages(content, options);
+  }
+  
+  ctx.font = `${options.fontSize}px ${options.fontFamily}`;
+  
+  const effectiveWidth = options.pageWidth - 2 * options.padding;
+  const effectiveHeight = options.pageHeight - 2 * options.padding;
+  const lineHeight = options.fontSize * options.lineHeight;
+  const linesPerPage = Math.floor(effectiveHeight / lineHeight);
+  
+  // 检测是否主要是中文内容
+  const isMostlyChinese = (content.match(/[\u4e00-\u9fff]/g) || []).length > content.length * 0.3;
+  
+  // 根据内容类型选择不同的分页策略
+  if (isMostlyChinese) {
+    // 中文内容分页 - 按字符处理
+    return chineseTextPagination(content, ctx, {
+      effectiveWidth,
+      linesPerPage,
+      lineHeight
+    });
+  } else {
+    // 英文内容分页 - 按单词处理
+    return englishTextPagination(content, ctx, {
+      effectiveWidth,
+      linesPerPage,
+      lineHeight
+    });
+  }
+}
+
+// 中文文本分页
+function chineseTextPagination(
+  content: string,
+  ctx: CanvasRenderingContext2D,
+  options: {
+    effectiveWidth: number,
+    linesPerPage: number,
+    lineHeight: number
+  }
+): string[] {
+  const paragraphs = content.split(/\n+/);
+  const pages: string[] = [];
+  let currentPageLines: string[] = [];
+  let currentLine = '';
+  
+  for (const paragraph of paragraphs) {
+    // 空段落处理
+    if (!paragraph.trim()) {
+      if (currentLine) {
+        currentPageLines.push(currentLine);
+        currentLine = '';
+      }
+      currentPageLines.push('');
+      
+      // 检查是否需要创建新页面
+      if (currentPageLines.length >= options.linesPerPage) {
+        pages.push(currentPageLines.join('\n'));
+        currentPageLines = [];
+      }
+      continue;
+    }
+    
+    // 逐字符处理段落
+    for (let i = 0; i < paragraph.length; i++) {
+      const char = paragraph[i];
+      const testLine = currentLine + char;
+      const metrics = ctx.measureText(testLine);
+      
+      if (metrics.width > options.effectiveWidth) {
+        // 当前行已满，添加到页面
+        currentPageLines.push(currentLine);
+        currentLine = char;
+        
+        // 检查是否需要创建新页面
+        if (currentPageLines.length >= options.linesPerPage) {
+          pages.push(currentPageLines.join('\n'));
+          currentPageLines = [];
+        }
+      } else {
+        currentLine = testLine;
+      }
+    }
+    
+    // 处理段落结束
+    if (currentLine) {
+      currentPageLines.push(currentLine);
+      currentLine = '';
+      
+      // 检查是否需要创建新页面
+      if (currentPageLines.length >= options.linesPerPage) {
+        pages.push(currentPageLines.join('\n'));
+        currentPageLines = [];
+      }
+    }
+  }
+  
+  // 添加最后一页
+  if (currentPageLines.length > 0 || currentLine) {
+    if (currentLine) {
+      currentPageLines.push(currentLine);
+    }
+    pages.push(currentPageLines.join('\n'));
+  }
+  
+  return pages;
+}
+
+// 英文文本分页
+function englishTextPagination(
+  content: string,
+  ctx: CanvasRenderingContext2D,
+  options: {
+    effectiveWidth: number,
+    linesPerPage: number,
+    lineHeight: number
+  }
+): string[] {
+  const paragraphs = content.split(/\n+/);
+  const pages: string[] = [];
+  let currentPageLines: string[] = [];
+  let currentLine = '';
+  
+  for (const paragraph of paragraphs) {
+    // 空段落处理
+    if (!paragraph.trim()) {
+      if (currentLine) {
+        currentPageLines.push(currentLine);
+        currentLine = '';
+      }
+      currentPageLines.push('');
+      
+      // 检查是否需要创建新页面
+      if (currentPageLines.length >= options.linesPerPage) {
+        pages.push(currentPageLines.join('\n'));
+        currentPageLines = [];
+      }
+      continue;
+    }
+    
+    // 按单词分割段落
+    const words = paragraph.split(/\s+/);
+    
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const metrics = ctx.measureText(testLine);
+      
+      if (metrics.width > options.effectiveWidth && currentLine) {
+        // 当前行已满，添加到页面
+        currentPageLines.push(currentLine);
+        currentLine = word;
+        
+        // 检查是否需要创建新页面
+        if (currentPageLines.length >= options.linesPerPage) {
+          pages.push(currentPageLines.join('\n'));
+          currentPageLines = [];
+        }
+      } else {
+        currentLine = testLine;
+      }
+    }
+    
+    // 处理段落结束
+    if (currentLine) {
+      currentPageLines.push(currentLine);
+      currentLine = '';
+      
+      // 检查是否需要创建新页面
+      if (currentPageLines.length >= options.linesPerPage) {
+        pages.push(currentPageLines.join('\n'));
+        currentPageLines = [];
+      }
+    }
+  }
+  
+  // 添加最后一页
+  if (currentPageLines.length > 0 || currentLine) {
+    if (currentLine) {
+      currentPageLines.push(currentLine);
+    }
+    pages.push(currentPageLines.join('\n'));
+  }
+  
+  return pages;
+}
+
+export default useReadingEngine
