@@ -510,8 +510,8 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
       // 底部
       if (scrollTop + clientHeight >= scrollHeight - THRESHOLD) {
         if (pageInfo && pageInfo.globalPage < pageInfo.totalPages - 1) {
-          nextPage();
           lastTrigger = now;
+          nextPage();
         }
         return;
       }
@@ -519,8 +519,8 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
       // 顶部
       if (scrollTop <= THRESHOLD) {
         if (pageInfo && pageInfo.globalPage > 0) {
-          prevPage();
           lastTrigger = now;
+          prevPage();
         }
       }
     };
