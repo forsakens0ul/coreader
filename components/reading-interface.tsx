@@ -496,11 +496,9 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
     const THROTTLE = 600; // ms
 
     let lastTrigger = 0;
-    let isLocked = false; // 防止翻页加载过程中再次触发，如有异步加载可用
 
     const handler = () => {
       if (showSettings || showChapters || showSearch || showNoteDialog) return;
-      if (isLocked) return;
 
       const { scrollTop, scrollHeight, clientHeight } =
         document.documentElement;
@@ -511,25 +509,25 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
 
       // 底部
       if (scrollTop + clientHeight >= scrollHeight - THRESHOLD) {
-        isLocked = true;
-        nextPage();
-        lastTrigger = now;
-        isLocked = false;
+        if (pageInfo && pageInfo.globalPage < pageInfo.totalPages - 1) {
+          nextPage();
+          lastTrigger = now;
+        }
         return;
       }
 
       // 顶部
       if (scrollTop <= THRESHOLD) {
-        isLocked = true;
-        prevPage();
-        lastTrigger = now;
-        isLocked = false;
+        if (pageInfo && pageInfo.globalPage > 0) {
+          prevPage();
+          lastTrigger = now;
+        }
       }
     };
 
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
-  }, [showSettings, showChapters, showSearch, showNoteDialog, readingMode]);
+  }, [showSettings, showChapters, showSearch, showNoteDialog, readingMode, pageInfo]);
 
   // 翻页后自动回到顶部
   useEffect(() => {
