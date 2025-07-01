@@ -109,7 +109,7 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
   const [brightness, setBrightness] = useState(settings.brightness);
   const [isReading, setIsReading] = useState(false);
   const [readingSpeed, setReadingSpeed] = useState(200); // words per minute
-  const [readingMode, setReadingMode] = useState<"page" | "scroll">("page");
+  const [readingMode, setReadingMode] = useState<"paged" | "scroll">("paged");
 
   const contentRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<Selection | null>(null);
@@ -489,6 +489,9 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
    * - 使用 600ms 节流防止频繁翻页
    */
   useEffect(() => {
+    // 只在滚动模式下启用
+    if (readingMode !== "scroll") return;
+
     const THRESHOLD = 80; // px
     const THROTTLE = 600; // ms
 
@@ -530,7 +533,7 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
 
   // 翻页后自动回到顶部
   useEffect(() => {
-    if (readingMode === "page") {
+    if (readingMode === "paged") {
       window.scrollTo({ top: 0, behavior: "auto" });
     }
   }, [currentPage, readingMode]);
@@ -1178,6 +1181,17 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
                   </Button>
                 )}
 
+                <Button
+                  variant={readingMode === "scroll" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() =>
+                    setReadingMode(readingMode === "paged" ? "scroll" : "paged")
+                  }
+                  title={`Switch to ${readingMode === "paged" ? "Scroll" : "Paged"} mode`}
+                >
+                  {readingMode === "scroll" ? "Scroll" : "Paged"}
+                </Button>
+
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
                   {pageInfo.globalPage + 1} / {pageInfo.totalPages}
                 </span>
@@ -1194,7 +1208,7 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
               </Button>
             </div>
 
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-muted rounded-full overflow-hidden relative">
               <motion.div
                 className="h-full bg-primary"
                 initial={{ width: 0 }}
@@ -1205,6 +1219,13 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
                 }}
                 transition={{ duration: 0.3 }}
               />
+              {readingMode === "scroll" && (
+                <div className="absolute top-0 right-0 h-full flex items-center pr-2">
+                  <span className="text-xs text-muted-foreground bg-background px-1 rounded">
+                    Scroll Mode
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1310,16 +1331,6 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
           onClick={() => setShowHighlightMenu(false)}
         />
       )}
-
-      <Button
-        variant={readingMode === "scroll" ? "default" : "outline"}
-        size="sm"
-        onClick={() =>
-          setReadingMode(readingMode === "page" ? "scroll" : "page")
-        }
-      >
-        {readingMode === "scroll" ? "Scroll" : "Paged"}
-      </Button>
     </div>
   );
 }
