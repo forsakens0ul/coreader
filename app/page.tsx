@@ -1,42 +1,43 @@
-"use client"
+"use client";
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { BookOpen, Upload, BarChart3, Settings, User } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Bookshelf } from '@/components/bookshelf'
-import BookImport from '@/components/book-import'
-import { ReadingInterface } from '@/components/reading-interface'
-import { useBookStore } from '@/lib/store'
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { BookOpen, Upload, BarChart3, Settings, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bookshelf } from "@/components/bookshelf";
+import BookImport from "@/components/book-import";
+import { ReadingInterface } from "@/components/reading-interface";
+import { useBookStore } from "@/lib/store";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('library')
-  const [showImport, setShowImport] = useState(false)
-  const [currentBook, setCurrentBook] = useState<any>(null)
-  const { books, readingStats } = useBookStore()
+  const [activeTab, setActiveTab] = useState("library");
+  const [showImport, setShowImport] = useState(false);
+  const [currentBook, setCurrentBook] = useState<any>(null);
+  const { books, readingStats } = useBookStore();
 
   const handleOpenBook = (book: any) => {
-    setCurrentBook(book)
-  }
+    setCurrentBook(book);
+  };
 
   const handleCloseBook = () => {
-    setCurrentBook(null)
-  }
+    setCurrentBook(null);
+  };
 
   const handleImportComplete = () => {
-    setShowImport(false)
-    setActiveTab('library')
-  }
+    setShowImport(false);
+    setActiveTab("library");
+  };
 
   if (currentBook) {
-    return (
-      <ReadingInterface
-        book={currentBook}
-        onClose={handleCloseBook}
-      />
-    )
+    return <ReadingInterface book={currentBook} onClose={handleCloseBook} />;
   }
 
   return (
@@ -46,9 +47,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <BookOpen className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">WeReader</span>
+            <span className="text-xl font-bold">CoReader</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -117,7 +118,7 @@ export default function Home() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-2xl font-bold">
-                      {books.filter(b => b.isFinished).length}
+                      {books.filter((b) => b.isFinished).length}
                     </CardTitle>
                     <CardDescription>Books Finished</CardDescription>
                   </CardHeader>
@@ -126,7 +127,10 @@ export default function Home() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-2xl font-bold">
-                      {books.filter(b => b.progress > 0 && !b.isFinished).length}
+                      {
+                        books.filter((b) => b.progress > 0 && !b.isFinished)
+                          .length
+                      }
                     </CardTitle>
                     <CardDescription>Currently Reading</CardDescription>
                   </CardHeader>
@@ -135,7 +139,11 @@ export default function Home() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-2xl font-bold">
-                      {Math.round(books.reduce((acc, book) => acc + book.progress, 0) / books.length) || 0}%
+                      {Math.round(
+                        books.reduce((acc, book) => acc + book.progress, 0) /
+                          books.length
+                      ) || 0}
+                      %
                     </CardTitle>
                     <CardDescription>Average Progress</CardDescription>
                   </CardHeader>
@@ -167,16 +175,27 @@ export default function Home() {
                   <CardContent>
                     <div className="space-y-3">
                       {books
-                        .sort((a, b) => new Date(b.lastReadAt).getTime() - new Date(a.lastReadAt).getTime())
+                        .sort(
+                          (a, b) =>
+                            new Date(b.lastReadAt).getTime() -
+                            new Date(a.lastReadAt).getTime()
+                        )
                         .slice(0, 5)
                         .map((book) => (
-                          <div key={book.id} className="flex items-center gap-3">
+                          <div
+                            key={book.id}
+                            className="flex items-center gap-3"
+                          >
                             <div className="w-8 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center flex-shrink-0">
                               <BookOpen className="w-4 h-4 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{book.title}</p>
-                              <p className="text-xs text-muted-foreground truncate">{book.author}</p>
+                              <p className="text-sm font-medium truncate">
+                                {book.title}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {book.author}
+                              </p>
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {book.progress}%
@@ -244,7 +263,7 @@ export default function Home() {
       {/* Import Dialog */}
       {showImport && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -257,5 +276,5 @@ export default function Home() {
         </div>
       )}
     </div>
-  )
+  );
 }
