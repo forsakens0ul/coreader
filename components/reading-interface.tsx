@@ -484,50 +484,56 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
   };
 
   /**
-   * 滚动到底 / 顶自动翻页
-   * - 距离边界 THRESHOLD 内触发
-   * - 使用 600ms 节流防止频繁翻页
+   * Scroll 读取模式：wheel 事件 + 方向 + 阈值判断。
    */
   useEffect(() => {
-    // 只在滚动模式下启用
     if (readingMode !== "scroll") return;
 
-    const THRESHOLD = 80; // px
-    const THROTTLE = 600; // ms
+    const THRESHOLD = 60; // px
+    const LOCK = 700; // ms
 
-    let lastTrigger = 0;
+    let locked = false;
 
-    const handler = () => {
+    const onWheel = (e: WheelEvent) => {
       if (showSettings || showChapters || showSearch || showNoteDialog) return;
+      if (locked) return;
 
       const { scrollTop, scrollHeight, clientHeight } =
         document.documentElement;
 
-      // 节流
-      const now = Date.now();
-      if (now - lastTrigger < THROTTLE) return;
-
-      // 底部
-      if (scrollTop + clientHeight >= scrollHeight - THRESHOLD) {
+      // 向下滚 & 接近底部 → 下一页
+      if (
+        e.deltaY > 0 &&
+        scrollTop + clientHeight >= scrollHeight - THRESHOLD
+      ) {
         if (pageInfo && pageInfo.globalPage < pageInfo.totalPages - 1) {
-          lastTrigger = now;
           nextPage();
+          locked = true;
+          setTimeout(() => (locked = false), LOCK);
         }
         return;
       }
 
-      // 顶部
-      if (scrollTop <= THRESHOLD) {
+      // 向上滚 & 接近顶部 → 上一页
+      if (e.deltaY < 0 && scrollTop <= THRESHOLD) {
         if (pageInfo && pageInfo.globalPage > 0) {
-          lastTrigger = now;
           prevPage();
+          locked = true;
+          setTimeout(() => (locked = false), LOCK);
         }
       }
     };
 
-    window.addEventListener("scroll", handler, { passive: true });
-    return () => window.removeEventListener("scroll", handler);
-  }, [showSettings, showChapters, showSearch, showNoteDialog, readingMode, pageInfo]);
+    window.addEventListener("wheel", onWheel, { passive: true });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, [
+    readingMode,
+    showSettings,
+    showChapters,
+    showSearch,
+    showNoteDialog,
+    pageInfo,
+  ]);
 
   // 翻页后自动回到顶部
   useEffect(() => {
@@ -1185,7 +1191,9 @@ export function ReadingInterface({ book, onClose }: ReadingInterfaceProps) {
                   onClick={() =>
                     setReadingMode(readingMode === "paged" ? "scroll" : "paged")
                   }
-                  title={`Switch to ${readingMode === "paged" ? "Scroll" : "Paged"} mode`}
+                  title={`Switch to ${
+                    readingMode === "paged" ? "Scroll" : "Paged"
+                  } mode`}
                 >
                   {readingMode === "scroll" ? "Scroll" : "Paged"}
                 </Button>
